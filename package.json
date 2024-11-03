@@ -1,17 +1,16 @@
-
 {
     "name": "bc2024-5",
     "version": "1.0.0",
     "main": "index.js",
     "scripts": {
-      "start": "node index.js",
-      "dev": "nodemon index.js"
+        "start": "node index.js",
+        "dev": "nodemon index.js"
     },
     "dependencies": {
-      "express": "^4.17.1"
+        "commander": "^12.1.0",
+        "express": "^4.17.1"
     },
-  "devDependencies": {
-    "nodemon": "^2.0.12"
-  }
-
+    "devDependencies": {
+        "nodemon": "^2.0.12"
+    }
 }
