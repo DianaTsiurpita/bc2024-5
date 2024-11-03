@@ -1,107 +1,82 @@
 const express = require('express');
-const fs = require('fs');
+const { Command } = require('commander');
 const path = require('path');
-const multer = require('multer');
-const { program } = require('commander');
 
-const app = express();
-const upload = multer();
-app.use(express.json());
-
+const program = new Command();
 program
-    .requiredOption('-h, --host <host>', 'host')
-    .requiredOption('-p, --port <port>', 'port')
-    .requiredOption('-c, --cache <cache>', 'cache');
+  .requiredOption('-h, --host <host>', 'адреса сервера')
+  .requiredOption('-p, --port <port>', 'порт сервера')
+  .requiredOption('-c, --cache <cache>', 'шлях до директорії кешу');
 
 program.parse(process.argv);
 
-const { host, port, cache } = program.opts();
+const options = program.opts();
+const app = express();
+const notes = {}; // Об'єкт для зберігання нотаток у пам'яті
 
-if (!fs.existsSync(cache)) {
-    fs.writeFileSync(cache, JSON.stringify([])); // Initialize as an empty array
-    console.log(`Cache file created at ${cache}`);
-} else {
-    console.log(`Cache file found at ${cache}`);
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Перевірка на обов'язкові параметри
+if (!options.host || !options.port || !options.cache) {
+  console.error('Усі параметри -h, -p, -c є обов\'язковими!');
+  process.exit(1);
 }
 
+// Запуск сервера
+app.listen(options.port, options.host, () => {
+  console.log(`Сервер запущено на ${options.host}:${options.port}`);
+});
+
+// Отримати нотатку за ім'ям
 app.get('/notes/:name', (req, res) => {
-    const { name } = req.params;
-    const cacheJSON = JSON.parse(fs.readFileSync(cache));
-    if (!Array.isArray(cacheJSON)) {
-        res.status(500).send('Cache is not in the correct format');
-        return;
+    const note = notes[req.params.name];
+    if (!note) {
+      return res.status(404).send('Нотатка не знайдена');
     }
-    const note = cacheJSON.find(note => note.name === name);
-    if (note) {
-        res.status(200).send(note);
-    } else {
-        res.status(404).send('Note not found');
-    }
+    res.send(note);
 });
 
+// Оновлення нотатки
 app.put('/notes/:name', (req, res) => {
-    const { name } = req.params;
-    const { content } = req.body;
-    let cacheJSON = JSON.parse(fs.readFileSync(cache));
-    if (!Array.isArray(cacheJSON)) {
-        res.status(500).send('Cache is not in the correct format');
-        return;
+    const noteName = req.params.name;
+    const noteText = req.body.text;
+
+    // Перевірте, чи нотатка існує
+    if (!notes[noteName]) {
+        return res.status(404).send('Нотатка не знайдена');
     }
-    const noteIndex = cacheJSON.findIndex(note => note.name === name);
-    if (noteIndex === -1) {
-        res.status(404).send('Note not found');
-        return;
-    }
-    cacheJSON[noteIndex].text = content;
-    fs.writeFileSync(cache, JSON.stringify(cacheJSON));
-    res.status(200).send('Note saved');
+
+    // Оновіть текст нотатки
+    notes[noteName] = noteText;
+    res.send('Нотатка оновлена');
 });
 
+// Видалення нотатки
 app.delete('/notes/:name', (req, res) => {
-    const { name } = req.params;
-    let cacheJSON = JSON.parse(fs.readFileSync(cache));
-    if (!Array.isArray(cacheJSON)) {
-        res.status(500).send('Cache is not in the correct format');
-        return;
+    if (!notes[req.params.name]) {
+      return res.status(404).send('Нотатка не знайдена');
     }
-    const noteIndex = cacheJSON.findIndex(note => note.name === name);
-    if (noteIndex === -1) {
-        res.status(404).send('Note not found');
-        return;
-    }
-    cacheJSON.splice(noteIndex, 1);
-    fs.writeFileSync(cache, JSON.stringify(cacheJSON));
-    res.status(200).send('Note deleted');
+    delete notes[req.params.name];
+    res.send('Нотатка видалена');
 });
 
+// Отримання всіх нотаток
 app.get('/notes', (req, res) => {
-    const cacheJSON = JSON.parse(fs.readFileSync(cache));
-    if (!Array.isArray(cacheJSON)) {
-        res.status(500).send('Cache is not in the correct format');
-        return;
-    }
-    res.status(200).send(cacheJSON);
+    res.status(200).json(Object.entries(notes).map(([name, text]) => ({ name, text })));
 });
 
-app.post('/write', upload.none(), (req, res) => {
+// Створення нової нотатки
+app.post('/write', (req, res) => {
     const { note_name, note } = req.body;
-    let cacheJSON = JSON.parse(fs.readFileSync(cache));
-    if (!Array.isArray(cacheJSON)) {
-        cacheJSON = [];
+    if (notes[note_name]) {
+      return res.status(400).send('Нотатка з таким ім\'ям вже існує');
     }
-    if (cacheJSON.some(n => n.name === note_name)) {
-        res.status(400).send('Note already exists');
-        return;
-    }
-    cacheJSON.push({ name: note_name, text: note });
-    fs.writeFileSync(cache, JSON.stringify(cacheJSON));
-    res.status(201).send('Note created');
+    notes[note_name] = note;
+    res.status(201).send('Нотатка створена');
 });
 
-app.get('', (req, res) => {
-    res.sendFile(path.join(__dirname, 'UploadForm.html'));
-});
-
-app.listen(port, host, () => {
-    console.log(`Server is running on http://${host}:${port}`);
+// Відображення HTML-форми для завантаження нотатки
+app.get('/UploadForm.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'UploadForm.html'));
 });

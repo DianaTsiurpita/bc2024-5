@@ -1,0 +1,9 @@
+[33m[nodemon] 3.1.7[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[32m[nodemon] starting `node index.js -h localhost -p 3000 -c ./cache`[39m
+Сервер запущено на localhost:3000
+[32m[nodemon] restarting child process[39m
+[32m[nodemon] starting `node index.js -h localhost -p 3000 -c ./cache`[39m
+Сервер запущено на localhost:3000
